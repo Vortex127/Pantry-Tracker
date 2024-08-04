@@ -1,113 +1,249 @@
-import Image from "next/image";
+"use client";
+import { collection, addDoc } from "firebase/firestore";
+import React, { useState } from "react";
+import { currencyformat } from "@/components/util";
+import Expenses from "@/components/expense_list";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Doughnut } from "react-chartjs-2";
+import ExpenseModal from "@/components/modal";
+import { db } from "@/firebase";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+const arr = [
+  { id: 1, title: "Entertainment", color: "#FF6384", amount: 100 },
+  { id: 2, title: "Fuel", color: "#36A2EB", amount: 200 },
+  { id: 3, title: "Hello World", color: "#FFCE56", amount: 300 },
+  { id: 4, title: "Diesel", color: "#4BC0C0", amount: 400 },
+  { id: 5, title: "DSU", color: "#9966FF", amount: 500 },
+];
 
 export default function Home() {
+  const [openExpenseModal, setOpenExpenseModal] = useState(false);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [Description, setDescription] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [siUnit, setSiUnit] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [price, setPrice] = useState("");
+  const [image, setImage] = useState(null);
+
+  const handleExpenseModalOpen = () => setOpenExpenseModal(true);
+  const handleExpenseModalClose = () => setOpenExpenseModal(false);
+
+  async function addData(name, description, expiryDate, siUnit, quantity, price) {
+    try {
+      // Use addDoc to add a new document to the "pantry" collection
+      const docRef = await addDoc(collection(db, "pantry"), {
+        name: name,
+        description: description,
+        expiryDate: expiryDate,
+        siUnit: siUnit,
+        quantity: quantity,
+        price: price,
+      });
+      console.log("Document written with ID: ", docRef.id);
+      return true;
+    } catch (error) {
+      console.log("Error adding document: ", error);
+      return false;
+    }
+  }
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const add = await addData(name, Description, expiryDate, siUnit, quantity, price);
+    if (add) {
+      setName("");
+      setDescription("");
+      setExpiryDate("");
+      setSiUnit("");
+      setQuantity("");
+      setPrice("");
+
+      alert ("Data added successfully to DB ");
+  };
+}
+
+const handleFileChange = (e) => {
+  setImage(e.target.files[0]);
+};
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <main className="container max-w-2xl px-6 mx-auto">
+      <section className="py-3">
+        <small className="text-gray-500 text-md">My Balance</small>
+        <h2 className="text-4xl font-bold">{currencyformat(100000)}</h2>
+      </section>
+
+      <section className="flex items-center gap-2 py-3">
+        <button
+          className="hover btn exp-inc-btns"
+          onClick={handleExpenseModalOpen}
+        >
+          Add Items
+        </button>
+      </section>
+
+      {/* Expenses */}
+      <section className="py-6">
+        <h3 className="text-2xl">My Expenses</h3>
+        <div className="flex flex-col gap-4 mt-6">
+          {arr.map((expense) => (
+            <Expenses
+              key={expense.id}
+              color={expense.color}
+              title={expense.title}
+              amount={expense.amount}
             />
-          </a>
+          ))}
         </div>
-      </div>
+      </section>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+      {/* Charts Section */}
+      <section className="py-6">
+        <h3 className="text-2xl">Stats</h3>
+        <div className="w-1/2 mx-auto">
+          <Doughnut
+            data={{
+              labels: arr.map((expense) => expense.title),
+              datasets: [
+                {
+                  label: "Add Items",
+                  data: arr.map((expense) => expense.amount),
+                  backgroundColor: arr.map((expense) => expense.color),
+                  borderColor: [
+                    "#18181b",
+                    "#792",
+                    "#224",
+                    "#328",
+                    "#874",
+                    "#785",
+                    "#765",
+                  ],
+                  borderWidth: 5,
+                },
+              ],
+            }}
+          />
+        </div>
+      </section>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+      {/* Expense Modal */}
+      <ExpenseModal
+        open={openExpenseModal}
+        onClose={handleExpenseModalClose}
+        submit={handleSubmit}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col gap-4">
+            <label htmlFor="name">Item Name</label>
+            <input
+              className="px-4 py-2 bg-slate-600 rounded-xl"
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter your item"
+              style={{ width: "100%" }}
+              required
+            />
+          </div>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+          <div className="flex flex-col gap-4">
+            <label htmlFor="Description">Description</label>
+            <input
+              className="px-4 py-2 bg-slate-600 rounded-xl"
+              type="text"
+              id="Description"
+              value={Description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter details about your item"
+              style={{ width: "100%" }}
+              required
+            />
+          </div>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
+          <div className="flex flex-col gap-4">
+            <label htmlFor="Expiry Date">Expiry Date</label>
+            <input
+              className="px-4 py-2 bg-slate-600 rounded-xl"
+              type="datetime-local"
+              id="Expiry Date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              placeholder="Enter expiry date"
+              style={{ width: "100%" }}
+              required
+            />
+          </div>
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+          <div className="flex flex-col gap-4">
+            <label htmlFor="si-unit">SI Unit</label>
+            <div className="flex items-center gap-4">
+              <select
+                className="px-4 py-2 bg-slate-600 rounded-xl"
+                id="SI Unit"
+                value={siUnit}
+                onChange={(e) => setSiUnit(e.target.value)}
+                style={{ width: "auto" }}
+                required
+              >
+                <option value="kg">Kilogram (kg)</option>
+                <option value="g">Gram (g)</option>
+                <option value="l">Litre (L)</option>
+                <option value="ml">Millilitre (mL)</option>
+                <option value="m">Meter (m)</option>
+                <option value="cm">Centimeter (cm)</option>
+              </select>
+              <input
+                className="px-4 py-2 bg-slate-600 rounded-xl"
+                type="number"
+                id="quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="Quantity"
+                style={{ width: "auto" }}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <label htmlFor="Price">Price</label>
+            <input
+              className="px-4 py-2 bg-slate-600 rounded-xl"
+              type="number"
+              id="Price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="Enter price"
+              style={{ width: "100%" }}
+              required
+            />
+          </div>
+
+          {/* <div className="flex flex-col gap-4">
+    <label htmlFor="picture">Add Picture</label>
+    <input
+      type="file"
+      id="picture"
+      accept="image/*"
+      onChange={handleFileChange}
+      className="px-4 py-2 bg-slate-600 rounded-xl"
+      required
+    />
+  </div> */}
+
+        <div className="flex justify-end">
+            <button type="Submit" className="btn hover exp-inc-btns" onClick={handleSubmit}>
+              Submit
+            </button>
+          </div>
+        </form>
+      </ExpenseModal>
     </main>
   );
 }
