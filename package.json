@@ -13,6 +13,7 @@
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^5.16.6",
     "@mui/material": "^5.16.6",
+    "aos": "^2.3.4",
     "chart.js": "^4.4.3",
     "chartjs": "^0.3.24",
     "chartjs-2": "^0.0.1-security",

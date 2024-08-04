@@ -1,48 +1,151 @@
 "use client";
-import { collection, addDoc } from "firebase/firestore";
-import React, { useState } from "react";
+import {
+  collection,
+  doc,
+  getDoc,
+  updateDoc,
+  addDoc,
+  getDocs,
+  deleteDoc 
+} from "firebase/firestore";
+import React, { useState, useEffect } from "react";
 import { currencyformat } from "@/components/util";
-import Expenses from "@/components/expense_list";
+import Pantry from "@/components/pantry";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import ExpenseModal from "@/components/modal";
 import { db } from "@/firebase";
+import {getRandomColor} from "@/components/pantry"
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const arr = [
-  { id: 1, title: "Entertainment", color: "#FF6384", amount: 100 },
-  { id: 2, title: "Fuel", color: "#36A2EB", amount: 200 },
-  { id: 3, title: "Hello World", color: "#FFCE56", amount: 300 },
-  { id: 4, title: "Diesel", color: "#4BC0C0", amount: 400 },
-  { id: 5, title: "DSU", color: "#9966FF", amount: 500 },
-];
+
 
 export default function Home() {
   const [openExpenseModal, setOpenExpenseModal] = useState(false);
+  const [editItem, setEditItem] = useState(null); // For editing item
+  const [items, setItems] = useState([]);
 
   // Form state
   const [name, setName] = useState("");
-  const [Description, setDescription] = useState("");
+  const [description, setDescription] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [siUnit, setSiUnit] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState(null);
 
-  const handleExpenseModalOpen = () => setOpenExpenseModal(true);
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const deleteData = async (id) => {
+    try {
+      const docRef = doc(db, "pantry", id);
+      await deleteDoc(docRef);
+      console.log("Document deleted with ID: ", id);
+      return true;
+    } catch (error) {
+      console.log("Error deleting document: ", error);
+      return false;
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      const success = await deleteData(id);
+      if (success) {
+        // Remove deleted item from state
+        setItems(items.filter((item) => item.id !== id));
+      }
+    }
+  };
+
+  const fetchItems = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "pantry"));
+      const fetchedItems = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setItems(fetchedItems);
+    } catch (error) {
+      console.error("Error fetching items: ", error);
+    }
+  };
+
+  const handleEditItem = async (id) => {
+    try {
+      if (!id) {
+        setEditItem(null); // For adding new item
+        setOpenExpenseModal(true);
+        return;
+      }
+
+      const docRef = doc(db, "pantry", id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const itemData = docSnap.data();
+        setEditItem({ id, ...itemData });
+        setName(itemData.name || "");
+        setDescription(itemData.description || "");
+        setExpiryDate(itemData.expiryDate || "");
+        setSiUnit(itemData.siUnit || "");
+        setQuantity(itemData.quantity || "");
+        setPrice(itemData.price || "");
+        setOpenExpenseModal(true);
+      } else {
+        console.error("No such document!");
+      }
+    } catch (error) {
+      console.error("Error fetching item: ", error);
+    }
+  };
+
   const handleExpenseModalClose = () => setOpenExpenseModal(false);
 
-  async function addData(name, description, expiryDate, siUnit, quantity, price) {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (editItem) {
+      const updated = await updateData(editItem.id);
+      if (updated) {
+        fetchItems(); // Refresh items after update
+        handleExpenseModalClose();
+        alert("Data updated successfully.");
+      }
+    } else {
+      const added = await addData(
+        name,
+        description,
+        expiryDate,
+        siUnit,
+        quantity,
+        price
+      );
+      if (added) {
+        fetchItems(); // Refresh items after adding
+        handleExpenseModalClose();
+        alert("Data added successfully to DB.");
+      }
+    }
+  };
+
+  async function addData(
+    name,
+    description,
+    expiryDate,
+    siUnit,
+    quantity,
+    price
+  ) {
     try {
-      // Use addDoc to add a new document to the "pantry" collection
       const docRef = await addDoc(collection(db, "pantry"), {
-        name: name,
-        description: description,
-        expiryDate: expiryDate,
-        siUnit: siUnit,
-        quantity: quantity,
-        price: price,
+        name,
+        description,
+        expiryDate,
+        siUnit,
+        quantity,
+        price,
       });
       console.log("Document written with ID: ", docRef.id);
       return true;
@@ -51,25 +154,29 @@ export default function Home() {
       return false;
     }
   }
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const add = await addData(name, Description, expiryDate, siUnit, quantity, price);
-    if (add) {
-      setName("");
-      setDescription("");
-      setExpiryDate("");
-      setSiUnit("");
-      setQuantity("");
-      setPrice("");
 
-      alert ("Data added successfully to DB ");
+  async function updateData(id) {
+    try {
+      const docRef = doc(db, "pantry", id);
+      await updateDoc(docRef, {
+        name,
+        description,
+        expiryDate,
+        siUnit,
+        quantity,
+        price,
+      });
+      console.log("Document updated with ID: ", id);
+      return true;
+    } catch (error) {
+      console.log("Error updating document: ", error);
+      return false;
+    }
+  }
+
+  const handleFileChange = (e) => {
+    setImage(e.target.files[0]);
   };
-}
-
-const handleFileChange = (e) => {
-  setImage(e.target.files[0]);
-};
 
   return (
     <main className="container max-w-2xl px-6 mx-auto">
@@ -81,7 +188,7 @@ const handleFileChange = (e) => {
       <section className="flex items-center gap-2 py-3">
         <button
           className="hover btn exp-inc-btns"
-          onClick={handleExpenseModalOpen}
+          onClick={() => handleEditItem(null)} // Open modal for adding new items
         >
           Add Items
         </button>
@@ -91,45 +198,40 @@ const handleFileChange = (e) => {
       <section className="py-6">
         <h3 className="text-2xl">My Expenses</h3>
         <div className="flex flex-col gap-4 mt-6">
-          {arr.map((expense) => (
-            <Expenses
-              key={expense.id}
-              color={expense.color}
-              title={expense.title}
-              amount={expense.amount}
+          {items.map((item) => (
+            <Pantry
+              key={item.id}
+              id={item.id}
+              title={item.name}
+              amount={item.price}
+              onEdit={handleEditItem}
+              onDelete={() => handleDelete(item.id)}
             />
           ))}
         </div>
       </section>
 
-      {/* Charts Section */}
-      <section className="py-6">
-        <h3 className="text-2xl">Stats</h3>
-        <div className="w-1/2 mx-auto">
-          <Doughnut
-            data={{
-              labels: arr.map((expense) => expense.title),
-              datasets: [
-                {
-                  label: "Add Items",
-                  data: arr.map((expense) => expense.amount),
-                  backgroundColor: arr.map((expense) => expense.color),
-                  borderColor: [
-                    "#18181b",
-                    "#792",
-                    "#224",
-                    "#328",
-                    "#874",
-                    "#785",
-                    "#765",
-                  ],
-                  borderWidth: 5,
-                },
-              ],
-            }}
-          />
-        </div>
-      </section>
+{/* Charts Section */}
+<section className="py-6" id="charts-section">
+  <h3 className="text-2xl">Stats</h3>
+  <div className="w-1/2 mx-auto">
+    <Doughnut
+      data={{
+        labels: items.map((item) => item.name),
+        datasets: [
+          {
+            label: "Pantry Items",
+            data: items.map((item) => item.price),
+            backgroundColor: items.map(() => getRandomColor()),
+            borderColor: "#000000", // Set border color to black
+            borderWidth: 5,
+          },
+        ],
+      }}
+    />
+  </div>
+</section>
+
 
       {/* Expense Modal */}
       <ExpenseModal
@@ -158,7 +260,7 @@ const handleFileChange = (e) => {
               className="px-4 py-2 bg-slate-600 rounded-xl"
               type="text"
               id="Description"
-              value={Description}
+              value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter details about your item"
               style={{ width: "100%" }}
@@ -194,29 +296,31 @@ const handleFileChange = (e) => {
                 <option value="kg">Kilogram (kg)</option>
                 <option value="g">Gram (g)</option>
                 <option value="l">Litre (L)</option>
-                <option value="ml">Millilitre (mL)</option>
-                <option value="m">Meter (m)</option>
-                <option value="cm">Centimeter (cm)</option>
+                <option value="ml">Millilitre (ml)</option>
               </select>
-              <input
-                className="px-4 py-2 bg-slate-600 rounded-xl"
-                type="number"
-                id="quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="Quantity"
-                style={{ width: "auto" }}
-                required
-              />
             </div>
           </div>
 
           <div className="flex flex-col gap-4">
-            <label htmlFor="Price">Price</label>
+            <label htmlFor="quantity">Quantity</label>
             <input
               className="px-4 py-2 bg-slate-600 rounded-xl"
               type="number"
-              id="Price"
+              id="quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="Enter quantity"
+              style={{ width: "100%" }}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <label htmlFor="price">Price</label>
+            <input
+              className="px-4 py-2 bg-slate-600 rounded-xl"
+              type="number"
+              id="price"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="Enter price"
@@ -225,21 +329,13 @@ const handleFileChange = (e) => {
             />
           </div>
 
-          {/* <div className="flex flex-col gap-4">
-    <label htmlFor="picture">Add Picture</label>
-    <input
-      type="file"
-      id="picture"
-      accept="image/*"
-      onChange={handleFileChange}
-      className="px-4 py-2 bg-slate-600 rounded-xl"
-      required
-    />
-  </div> */}
-
-        <div className="flex justify-end">
-            <button type="Submit" className="btn hover exp-inc-btns" onClick={handleSubmit}>
-              Submit
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl"
+              onClick={handleSubmit}
+            >
+              {editItem ? "Update Item" : "Add Item"}
             </button>
           </div>
         </form>

@@ -1,5 +1,4 @@
 import { IoStatsChart } from "react-icons/io5";
-import { AiOutlineLogout } from "react-icons/ai";
 function Nav() {
     return  <header className="container max-w-2xl px-6 py-6 mx-auto">
     <div className="flex items-center justify-between">
@@ -16,14 +15,12 @@ function Nav() {
 {/* Right side of navigation */}
 <nav className="flex items-center gap-4 py-2">
 <div className="hover btn">
-  <IoStatsChart size={24} />
-</div>
-<div className="hover btn">
-  <AiOutlineLogout size={24} />
+  <a href="#charts-section">
+  <IoStatsChart size={24}/>
+  </a>
 </div>
 </nav>
 </div>
   </header>;
 }
-
 export default Nav;
